@@ -4,7 +4,8 @@ import com.sw.rpc.config.LocalConfig;
 import com.sw.rpc.assist.registry.ServiceRegister;
 import com.sw.rpc.assist.registry.impl.ServiceRegisterImpl;
 import com.sw.rpc.netty.handler.RpcCodec;
-import com.sw.rpc.netty.handler.RpcRequestHandler;
+import com.sw.rpc.netty.handler.RequestHandler;
+import com.sw.rpc.netty.handler.ServerIdleHandler;
 import com.sw.rpc.utils.*;
 import io.netty.bootstrap.ServerBootstrap;
 import io.netty.channel.ChannelFuture;
@@ -13,6 +14,7 @@ import io.netty.channel.nio.NioEventLoopGroup;
 import io.netty.channel.socket.nio.NioServerSocketChannel;
 import io.netty.channel.socket.nio.NioSocketChannel;
 import io.netty.handler.codec.LengthFieldBasedFrameDecoder;
+import io.netty.handler.timeout.IdleStateHandler;
 import lombok.extern.slf4j.Slf4j;
 
 import java.net.InetSocketAddress;
@@ -99,7 +101,7 @@ public class RpcServer {
         NioEventLoopGroup worker = new NioEventLoopGroup(workerNum);
 
         RpcCodec rpcCodec = new RpcCodec();
-        RpcRequestHandler rpcRequestHandler = new RpcRequestHandler();
+        RequestHandler requestHandler = new RequestHandler();
         try {
             ChannelFuture future = new ServerBootstrap()
                     .group(boss, worker)
@@ -107,9 +109,11 @@ public class RpcServer {
                     .childHandler(new ChannelInitializer<NioSocketChannel>() {
                         @Override
                         protected void initChannel(NioSocketChannel ch) throws Exception {
+                            ch.pipeline().addLast(new IdleStateHandler(READ_IDLE_SECOND, 0, 0));
+                            ch.pipeline().addLast(new ServerIdleHandler());
                             ch.pipeline().addLast(new LengthFieldBasedFrameDecoder(MAX_FRAME_LENGTH, 8, 4, 0, 0));
                             ch.pipeline().addLast(rpcCodec);
-                            ch.pipeline().addLast(rpcRequestHandler);
+                            ch.pipeline().addLast(requestHandler);
                         }
                     }).bind(serverPort).sync();
             ChannelFuture closedFuture = future.channel().closeFuture();

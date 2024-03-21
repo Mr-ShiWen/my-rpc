@@ -9,11 +9,14 @@ public class Constant {
 
     public static final int MESSAGE_MAGIC_NUM = 888;
 
-    public static final int ZOOKEEPER_SESSION_TIME_OUT=2000;
+    public static final int ZOOKEEPER_SESSION_TIME_OUT = 2000;
 
-    public static final String RPC_ROOT_PATH="/rpcServices";
+    public static final String RPC_ROOT_PATH = "/rpcServices";
 
-    public static final String DEFAULT_SERVICE_IMPL_NAME="";
+    public static final String DEFAULT_SERVICE_IMPL_NAME = "";
+
+    public static final int READ_IDLE_SECOND = 10;
+    public static final int WRITE_IDLE_SECOND = 3;
 
     public enum MessageVersion {
         MESSAGE_VERSION_1(1);

@@ -10,8 +10,9 @@ import com.sw.rpc.assist.registry.impl.ServiceDiscoverImpl;
 import com.sw.rpc.config.LocalConfig;
 import com.sw.rpc.dto.detail.RpcRequest;
 import com.sw.rpc.dto.detail.RpcResponse;
+import com.sw.rpc.netty.handler.ClientIdleHandler;
 import com.sw.rpc.netty.handler.RpcCodec;
-import com.sw.rpc.netty.handler.RpcResponseHandler;
+import com.sw.rpc.netty.handler.ResponseHandler;
 import com.sw.rpc.utils.UuidUtil;
 import io.netty.bootstrap.Bootstrap;
 import io.netty.channel.ChannelFuture;
@@ -19,11 +20,11 @@ import io.netty.channel.ChannelInitializer;
 import io.netty.channel.nio.NioEventLoopGroup;
 import io.netty.channel.socket.nio.NioSocketChannel;
 import io.netty.handler.codec.LengthFieldBasedFrameDecoder;
+import io.netty.handler.timeout.IdleStateHandler;
 import io.netty.util.concurrent.DefaultPromise;
 import io.netty.util.concurrent.Promise;
 import lombok.extern.slf4j.Slf4j;
 
-import java.io.IOException;
 import java.lang.reflect.InvocationHandler;
 import java.lang.reflect.Method;
 import java.lang.reflect.Proxy;
@@ -79,7 +80,7 @@ public class RpcClient {
                                 implName.length > 0 ? implName[0] : ""
                         );
                         // 2.调用得到 rpcResponse
-                        RpcResponse rpcResponse = send(rpcRequest);
+                        RpcResponse rpcResponse = sendWithServiceDiscover(rpcRequest);
                         // 3.处理得到结果
                         if (rpcResponse.getErrMsg() == null) {
                             return rpcResponse.getReturnValue();
@@ -123,40 +124,25 @@ public class RpcClient {
     }
 
 
-    private RpcResponse send(RpcRequest rpcRequest) {
+    private RpcResponse sendWithServiceDiscover(RpcRequest rpcRequest) {
         try {
-            // 0. 检查服务发现是否存在
+            // 1. 检查服务发现是否存在
             if (serviceDiscover == null) {
                 throw new Exception("serviceDiscover does not exist, please check whether zookeeper works well");
             }
 
-            // 1.服务发现
+            // 2.服务发现
             List<String> urlList = serviceDiscover.discoverService(rpcRequest);
 
-            // 2.负载均衡
+            // 3.负载均衡
             String address = loadBalance.selectServiceAddress(urlList, rpcRequest);
 
-            // 3.解析得到地址
+            // 4.解析得到地址
             String[] splits = address.split(":");
             InetSocketAddress inetSocketAddress = new InetSocketAddress(splits[0], Integer.valueOf(splits[1]));
 
-            // 4.寻找 channel
-            NioSocketChannel channel = channelMap.getOrDefault(inetSocketAddress.toString(), null);
-            channel = channel == null ? buidChannel(inetSocketAddress) : channel;
-
-            // 5.发送请求
-            Promise<RpcResponse> respPromise = new DefaultPromise<>(new NioEventLoopGroup().next());
-            respMap.put(rpcRequest.getRequestId(), respPromise);
-            channel.writeAndFlush(rpcRequest);
-
-            // 6. 同步等待结果
-            RpcResponse rpcResponse = respPromise.get();
-
-            // 7. 从 map 中删除结果
-            respMap.remove(rpcRequest.getRequestId());
-
-            // 8.返回结果
-            return rpcResponse;
+            // 5. 发送请求，得到结果
+            return sendWithSpecificConn(rpcRequest, inetSocketAddress);
 
         } catch (Exception e) {
             throw new RuntimeException(e);
@@ -168,7 +154,7 @@ public class RpcClient {
         try {
             // 1.寻找 channel
             NioSocketChannel channel = channelMap.getOrDefault(inetSocketAddress.toString(), null);
-            channel = channel == null ? buidChannel(inetSocketAddress) : channel;
+            channel = (channel == null || !channel.isActive()) ? buidChannel(inetSocketAddress) : channel;
 
             // 2.发送请求
             Promise<RpcResponse> respPromise = new DefaultPromise<>(new NioEventLoopGroup().next());
@@ -189,6 +175,12 @@ public class RpcClient {
         }
     }
 
+    /**
+     * 建立 channel 连接，并放到 channelMap 里面
+     *
+     * @param inetSocketAddress
+     * @return
+     */
     private NioSocketChannel buidChannel(InetSocketAddress inetSocketAddress) {
         try {
             // 同步建立连接
@@ -274,16 +266,18 @@ public class RpcClient {
 
         // 5.初始化 bootstrap
         RpcCodec rpcCodec = new RpcCodec();
-        RpcResponseHandler rpcResponseHandler = new RpcResponseHandler();
+        ResponseHandler responseHandler = new ResponseHandler();
         bootstrap = new Bootstrap()
                 .group(new NioEventLoopGroup(workerNum))
                 .channel(NioSocketChannel.class)
                 .handler(new ChannelInitializer<NioSocketChannel>() {
                     @Override
                     protected void initChannel(NioSocketChannel ch) throws Exception {
+                        ch.pipeline().addLast(new IdleStateHandler(READ_IDLE_SECOND, WRITE_IDLE_SECOND, 0));
+                        ch.pipeline().addLast(new ClientIdleHandler());
                         ch.pipeline().addLast(new LengthFieldBasedFrameDecoder(MAX_FRAME_LENGTH, 8, 4, 0, 0));
                         ch.pipeline().addLast(rpcCodec);
-                        ch.pipeline().addLast(rpcResponseHandler);
+                        ch.pipeline().addLast(responseHandler);
                     }
                 });
     }

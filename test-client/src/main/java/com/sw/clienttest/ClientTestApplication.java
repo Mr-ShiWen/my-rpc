@@ -18,9 +18,13 @@ public class ClientTestApplication {
     public static void main(String[] args) {
         ConfigurableApplicationContext context = SpringApplication.run(ClientTestApplication.class, args);
         RpcClient rpcClient = context.getBean(RpcClient.class);
-        HelloService helloService = rpcClient.getServerProxyWithServiceDiscover(HelloService.class, "Tony");
+        HelloService helloServiceTony = rpcClient.getServerProxyWithServiceDiscover(HelloService.class, "Tony");
+        HelloService helloServiceDefault = rpcClient.getServerProxyWithServiceDiscover(HelloService.class);
         for (int i = 0; i < 3; i++) {
-            log.info(helloService.sayHello("Liming"));
+            log.info(helloServiceTony.sayHello("Liming"));
+        }
+        for (int i = 0; i < 3; i++) {
+            log.info(helloServiceDefault.sayHello("Liming"));
         }
     }
 

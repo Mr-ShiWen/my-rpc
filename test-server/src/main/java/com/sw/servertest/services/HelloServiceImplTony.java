@@ -8,7 +8,7 @@ import org.springframework.stereotype.Service;
 @Slf4j
 @Service
 @RpcServerInfo(implName = "Tony")
-public class HelloServiceTony implements HelloService {
+public class HelloServiceImplTony implements HelloService {
     private String name = "Tony";
 
     @Override

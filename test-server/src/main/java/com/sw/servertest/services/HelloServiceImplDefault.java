@@ -7,9 +7,9 @@ import org.springframework.stereotype.Service;
 
 @Slf4j
 @Service
-@RpcServerInfo(implName = "Lily")
-public class HelloServiceLily implements HelloService {
-    private String name = "Lily";
+@RpcServerInfo
+public class HelloServiceImplDefault implements HelloService {
+    private String name = "default";
 
     @Override
     public String sayHello(String friendName) {
