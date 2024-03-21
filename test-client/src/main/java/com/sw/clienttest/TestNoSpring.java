@@ -13,7 +13,7 @@ public class TestNoSpring {
     public void testCallWithServerDiscover() {
         RpcClient rpcClient = new RpcClient(LOADBALANCETYPE_POLLING);
         HelloService helloServiceLily = rpcClient.getServerProxyWithServiceDiscover(HelloService.class, "Lily");
-        HelloService helloServiceTony = rpcClient.getServerProxyWithServiceDiscover(HelloService.class, "Tony");
+        HelloService helloServiceTony = rpcClient.getServerProxyWithServiceDiscover(HelloService.class);
         for (int i = 0; i < 6; i++) {
             log.info(helloServiceLily.sayHello("shiwen"));
         }
@@ -24,7 +24,7 @@ public class TestNoSpring {
 
     @org.junit.jupiter.api.Test
     public void testCallWithSpecificConn() {
-        RpcClient rpcClient = new RpcClient(LOADBALANCETYPE_POLLING);
+        RpcClient rpcClient = new RpcClient();
         HelloService helloServiceLily = rpcClient.getServerProxyWithSpecificConn(HelloService.class, "192.168.1.3", 8080, "Lily");
         HelloService helloServiceTony = rpcClient.getServerProxyWithSpecificConn(HelloService.class, "192.168.1.3", 8080, "Tony");
         for (int i = 0; i < 6; i++) {

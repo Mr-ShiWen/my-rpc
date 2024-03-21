@@ -16,10 +16,14 @@ import java.util.Scanner;
 public class ClientTestApplication {
 
     public static void main(String[] args) {
+        // 运行启动类
         ConfigurableApplicationContext context = SpringApplication.run(ClientTestApplication.class, args);
+        // 获取 rpcClient（也可以在业务 bean 里面注入属性）
         RpcClient rpcClient = context.getBean(RpcClient.class);
+        // 获取代理
         HelloService helloServiceTony = rpcClient.getServerProxyWithServiceDiscover(HelloService.class, "Tony");
         HelloService helloServiceDefault = rpcClient.getServerProxyWithServiceDiscover(HelloService.class);
+        // 执行 rpc
         for (int i = 0; i < 3; i++) {
             log.info(helloServiceTony.sayHello("Liming"));
         }
